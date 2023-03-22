@@ -1,0 +1,45 @@
+---
+title: "oil_production"
+author: "Jordan Daley"
+date: "2023-03-22"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggfortify)
+library(htmltools)
+library(plotly)
+```
+
+```{r}
+Oil Production <- read_csv('Oil Production.csv')
+```
+
+```{r}
+p1 <- ggplot(crime, aes(x = burglary, y = murder)) +
+  labs(title = "MURDERS VERSUS BURGLARIES IN US STATES PER 100,000",
+  caption = "Oil Production") +
+  xlab("Years") +
+  ylab ("Region") +
+  theme_minimal(base_size = 12)
+p1 + geom_point()
+```
+
+```{r}
+p4 <- p3 + geom_point() + geom_smooth(color = "blue")
+p4
+```
+
+```{r}
+autoplot(fit2, 1:4, nrow=2, ncol=2)
+```
+
+```{r}
+autoplot(fit5, 1:4, nrow=2, ncol=2)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+```
+
