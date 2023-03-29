@@ -1,0 +1,60 @@
+---
+title: "DS Labs"
+author: "Jordan Daley"
+date: "2023-03-29"
+output: html_document
+---
+
+```{r}
+# load required packages
+library(tidyverse)
+# load disease and democracy data
+setwd("C:/Users/rsaidi/Dropbox/Rachel/MontColl/Datasets/Datasets")
+disease_democ <- read_csv("disease_democ.csv")
+```
+
+```{r}
+# install.packages("dslabs")  # these are data science labs
+library("dslabs")
+data(package="dslabs")
+list.files(system.file("script", package = "dslabs"))
+```
+
+```{r}
+library(RColorBrewer)
+data("us_contagious_diseases")
+the_disease <- "Measles"
+us_contagious_diseases %>%
+  filter(!state%in%c("Hawaii","Alaska") & disease ==  the_disease) %>%
+  mutate(rate = count / population * 10000 * 52 / weeks_reporting) %>%
+  mutate(state = reorder(state, rate)) %>%
+  ggplot(aes(year, state,  fill = rate)) +
+  geom_tile(color = "grey50") +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_fill_gradientn(colors = brewer.pal(9, "Reds"), trans = "sqrt") +
+  geom_vline(xintercept=1963, col = "blue") +
+  theme_minimal() +  theme(panel.grid = element_blank()) +
+  ggtitle(the_disease) +
+  ylab("") +
+  xlab("")
+```
+
+```{r}
+filter(gapminder, year%in%c(1962, 2013) & !is.na(group) &
+         !is.na(fertility) & !is.na(life_expectancy)) %>%
+  mutate(population_in_millions = population/10^6) %>%
+  ggplot( aes(fertility, y=life_expectancy, col = group, size = population_in_millions)) +
+  geom_point(alpha = 0.8) +
+  guides(size=FALSE) +
+  theme(plot.title = element_blank(), legend.title = element_blank()) +
+  coord_cartesian(ylim = c(30, 85)) +
+  xlab("Fertility rate (births per woman)") +
+  ylab("Life Expectancy") +
+  geom_text(aes(x=6, y=82, label=year), cex=12, color="grey") +
+  facet_grid(. ~ year) +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        strip.text.y = element_blank(),
+   legend.position = "top")
+```
+
