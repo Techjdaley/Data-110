@@ -1,0 +1,215 @@
+---
+title: "GIS Tutorial HW"
+author: "Jordan Daley"
+date: "2023-04-11"
+output: html_document
+---
+```{r}
+library("tmaptools")
+library("sf")
+library("leaflet")
+```
+
+```{r}
+install.packages("scales")
+library("scales")
+```
+
+```{r}
+library(tidyverse)
+library(tmap)
+library(tmaptools)
+library(leaflet)
+library(sf)
+library(leaflet.extras)
+library(dplyr)
+library(rio)
+library(sp)
+```
+
+##  Step 1: Election result data
+```{r}
+nhdatafile <- "data/NHD2016.xlsx"
+```
+
+## # Step 2: Add columns for percents and margins
+```{r}
+nhdata$SandersMarginVotes <- nhdata$Sanders - nhdata$Clinton
+nhdata$SandersPct <- (nhdata$Sanders - nhdata$Clinton) / (nhdata$Sanders + nhdata$Clinton) # Will use formatting later to multiply by a hundred 
+nhdata$ClintonPct <- (nhdata$Clinton - nhdata$Sanders) / (nhdata$Sanders + nhdata$Clinton)
+nhdata$SandersMarginPctgPoints <- nhdata$SandersPct - nhdata$ClintonPct
+```
+
+```{r}
+usshapefile <- "data/cb_2014_us_county_5m/cb_2014_us_county_5m.shp"
+usgeo <- read_shape(file=usshapefile, as.sf = TRUE)
+nhgeo <- usgeo[usgeo@data$STATEFP=="33",]
+nhgeo <- filter(usgeo, STATEFP=="33")
+```
+
+## Step 4: Merge spatial and results data
+```{r}
+str(nhgeo$NAME)
+# Factor w/ 1921 levels "Abbeville","Acadia",..: 1470 684 416 1653 138 282 1131 1657 334 791
+
+str(nhdata$County)
+# chr [1:11] "Belknap" "Carroll" "Cheshire" "Coos" "Grafton"
+
+nhgeo$NAME <- as.character(nhgeo$NAME)
+
+nhgeo <- nhgeo[order(nhgeo$NAME),]
+nhdata <- nhdata[order(nhdata$County),]
+
+identical(nhgeo$NAME,nhdata$County )
+[1] TRUE
+
+nhmap <- append_data(nhgeo, nhdata, key.shp = "NAME", key.data="County")
+
+str(nhmap)
+```
+
+## Create a static map
+```{r}
+qtm(nhmap, "SandersMarginVotes")
+
+qtm(nhmap, "SandersMarginPctgPoints")
+
+tm_shape(nhmap) +
+tm_fill("SandersMarginVotes", title="Sanders Margin, Total Votes", palette = "PRGn") +
+tm_borders(alpha=.5) +
+tm_text("NAME", size=0.8)
+tm_style_classic()
+
+
+```
+
+## Create palette and pop-ups for interactive 
+```{r}
+mypalette <- colorFunction(palette = "colors I want", domain = mydataframe$dataColumnToMap)
+
+clintonPalette <- colorNumeric(palette = "Blues", domain=nhmap$ClintonPct)
+
+nhpopup <- paste0("County: ", nhmap$County,
+"Sanders ", percent(nhmap$SandersPct), " - Clinton ", percent(nhmap$ClintonPct))
+
+nhmap <- rename(nhmap, County = NAME)
+```
+
+## Step 7: Generate an interactive map
+```{r}
+leaflet(nhmap) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(stroke=FALSE, 
+              smoothFactor = 0.2,
+              fillOpacity = .8, 
+              popup=nhpopup,
+              color= ~clintonPalette(nhmap$ClintonPct)
+
+  nhmap_projected <- sf::st_transform(nhmap, "+proj=longlat +datum=WGS84")
+```
+
+## Step 8: Add palettes for multi-layer map
+```{r}
+minpct <- min(c(scmap$Donald.J.TrumpPct, scmap$Marco.RubioPct , scmap$Ted.CruzPct))
+maxpct <- max(c(scmap$Donald.J.TrumpPct, scmap$Marco.RubioPct , scmap$Ted.CruzPct))
+
+trumpPalette <- colorNumeric(palette = "Purples", domain=c(minpct, maxpct))
+rubioPalette <- colorNumeric(palette = "Reds", domain = c(minpct, maxpct))
+cruzPalette <- colorNumeric(palette = "Oranges", domain = c(minpct, maxpct))
+```
+
+```{r}
+winnerPalette <- colorFactor(palette=c("#984ea3", "#e41a1c"), domain = scmap$winner)
+edPalette <- colorNumeric(palette = "Blues", domain=scmap$PctCollegeDegree)
+```
+
+```{r}
+scpopup <- paste0("County: ", scmap@data$County,
+"Winner: ", scmap@data$winner,
+"Trump: ", percent(scmap$Donald.J.TrumpPct),
+"Rubio: ", percent(scmap$Marco.RubioPct),
+"Cruz: ", percent(scmap$Ted.CruzPct),
+"Pct w college ed: ", scmap$PctCollegeDegree, "% vs state-wide avg of 25%")
+```
+
+```{r}
+leaflet(scmap) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(stroke=TRUE,
+              weight=1,
+              smoothFactor = 0.2,
+              fillOpacity = .75,
+              popup=scpopup, 
+              color= ~winnerPalette(scmap$winner),
+              group="Winners"
+ ) %>%
+    addLegend(position="bottomleft", colors=c("#984ea3", "#e41a1c"), labels=c("Trump", "Rubio"))
+```
+
+## Step 9: 
+```{r}
+scGOPmap <- leaflet(scmap) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(stroke=TRUE,
+              weight=1,
+              smoothFactor = 0.2,
+              fillOpacity = .75,
+              popup=scpopup, 
+              color= ~winnerPalette(scmap$winner),
+              group="Winners"
+  ) %>% 
+    addLegend(position="bottomleft", colors=c("#984ea3", "#e41a1c"), labels=c("Trump", "Rubio"))  %>%
+
+  addPolygons(stroke=TRUE,
+     weight=1,
+     smoothFactor = 0.2, 
+     fillOpacity = .75, 
+     popup=scpopup, 
+     color= ~trumpPalette(scmap$Donald.J.TrumpPct),
+     group="Trump"
+    ) %>%
+
+  addPolygons(stroke=TRUE,
+              weight=1,
+              smoothFactor = 0.2, 
+              fillOpacity = .75, 
+              popup=scpopup, 
+              color= ~rubioPalette(scmap$Marco.RubioPct),
+              group="Rubio"
+  ) %>%
+
+  addPolygons(stroke=TRUE,
+              weight=1,
+              smoothFactor = 0.2, 
+              fillOpacity = .75, 
+              popup=scpopup, 
+              color= ~cruzPalette(scmap$Ted.CruzPct),
+              group="Cruz"
+  ) %>%
+
+  addPolygons(stroke=TRUE,
+              weight=1,
+              smoothFactor = 0.2, 
+              fillOpacity = .75, 
+              popup=scpopup, 
+              color= ~edPalette(scmap$PctCollegeDegree),
+              group="College degs"
+  ) %>%
+
+  addLayersControl(
+      baseGroups=c("Winners", "Trump", "Rubio", "Cruz", "College degs"),
+      position = "bottomleft",
+      options = layersControlOptions(collapsed = FALSE)
+      ) 
+```
+
+## Step 10
+```{r}
+# install.packages("htmlwidgets")
+save(widget=scGOPmap2, file="scGOPprimary_withdependencies.html", selfcontained=FALSE, libdir = "js")
+```
+
+
+```{r}
+# install.packages("htmlwidgets")
+save(widget=scGOPmap2, file="scGOPprimary_withdependencies.html", selfcontained=FALSE, libdir = "js")
